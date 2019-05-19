@@ -1,4 +1,4 @@
-VERSION := 0.1.0dev
+VERSION := 0.1.0
 COMMIT := $(shell git rev-parse HEAD)
 BUILD_DATE := $(shell date +%F)
 GO_BUILDOPTS := -ldflags "-s -w \
