@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"encoding/gob"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,7 +117,7 @@ func snapshot(root, out string, carryOn bool) error {
 				if carryOn {
 					return nil
 				}
-				return fmt.Errorf("%s: %s", path, err)
+				return err
 			}
 
 			f := fileInfo{
@@ -138,12 +137,12 @@ func snapshot(root, out string, carryOn bool) error {
 				}
 
 				if err := csBucket.Put(f.Checksum, marshal(f)); err != nil {
-					return err
+					return errors.Wrap(err, "bolt: unable to write to bucket")
 				}
 			}
 
 			if err := pathBucket.Put([]byte(strings.TrimPrefix(path, root)), marshal(f)); err != nil {
-				return err
+				return errors.Wrap(err, "bolt: unable to write to bucket")
 			}
 
 			return nil

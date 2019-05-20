@@ -125,7 +125,7 @@ func diff(before, after string, ignore []string, summary bool) error {
 				nNew++
 				return nil
 			}); err != nil {
-				return err
+				dieOnError("bolt: unable to loop on bucket keys: %s", err)
 			}
 
 			// Perform reverse lookup to detect deleted files
@@ -142,7 +142,7 @@ func diff(before, after string, ignore []string, summary bool) error {
 
 				return nil
 			}); err != nil {
-				return err
+				dieOnError("bolt: unable to loop on bucket keys: %s", err)
 			}
 
 			return nil
