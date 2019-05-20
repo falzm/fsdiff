@@ -97,6 +97,16 @@ test_dump_snapshot() {
     pass 
 }
 
+test_diff_snapshot_containing_symlinks() {
+    ln -s a "$TESTROOTDIR/a_l"
+    ln -s z "$TESTROOTDIR/z_l"
+    fsdiff snapshot -o "$TMPDIR/snap" "$TESTROOTDIR" ; rc=$?
+    fsdiff dump "$TMPDIR/snap" 1> "$TMPDIR/out"
+    grep -Eq -e "^a_l.*link:a$" -e "^z_l.*link:z$" "$TMPDIR/out" || fail "unexpected output:\n$(<$TMPDIR/out)"
+
+    pass
+}
+
 test_diff_snapshot_without_changes() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
@@ -135,6 +145,22 @@ test_diff_snapshot_with_modified_file() {
 \s+size:2.*checksum:3a710d2a84f856bc4e1c0bbb93ca517893c48691\
 \s+size:3.*checksum:15546de8c3b03e70ceec10a49f271b96b745a0a6\
 \s+0 new, 1 changed, 0 deleted" "$TMPDIR/out" || fail "unexpected output:\n$(<$TMPDIR/out)"
+
+    pass
+}
+
+test_diff_snapshot_with_modified_symlink() {
+    ln -s a "$TESTROOTDIR/a_l"
+    ln -s z "$TESTROOTDIR/z_l"
+    fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
+    rm -f "$TESTROOTDIR"/*_l
+    ln -s z "$TESTROOTDIR/a_l"
+    ln -s a "$TESTROOTDIR/z_l"
+    fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
+    fsdiff diff --nocolor "$TMPDIR/before.snap" "$TMPDIR/after.snap" > "$TMPDIR/out"
+    grep -Pzq "^\~ a_l\s.*link:a\s.*link:z\s+\
+\~ z_l\s.*link:z\s.*link:a\s+\
+0 new, 2 changed, 0 deleted" "$TMPDIR/out" || fail "unexpected output:\n$(<$TMPDIR/out)"
 
     pass
 }

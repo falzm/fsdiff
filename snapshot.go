@@ -130,8 +130,18 @@ func snapshot(root, out string, carryOn bool) error {
 				Path:  strings.TrimPrefix(path, root),
 			}
 
-			// Index files (non-directory) also by checksum for reverse lookup during diff
-			if !f.IsDir {
+			if f.Mode&os.ModeSymlink == os.ModeSymlink {
+				f.LinkTo, err = os.Readlink(path)
+				if err != nil {
+					if carryOn {
+						return nil
+					}
+					return errors.Wrap(err, "unable to read symlink")
+				}
+			}
+
+			// Index regular files (no directory or symlink) also by checksum for reverse lookup during diff
+			if !f.IsDir && f.LinkTo == "" {
 				if f.Checksum, err = checksumFile(path); err != nil {
 					dieOnError("unable to compute file checksum: %s", err)
 				}

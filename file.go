@@ -16,6 +16,7 @@ type fileInfo struct {
 	Uid      uint32
 	Gid      uint32
 	Mode     os.FileMode
+	LinkTo   string
 	IsDir    bool
 	Checksum []byte
 }
@@ -33,6 +34,10 @@ func (f *fileInfo) String() string {
 
 	if f.IsDir {
 		return s + " DIR"
+	}
+
+	if f.LinkTo != "" {
+		return fmt.Sprintf("%s link:%s", s, f.LinkTo)
 	}
 
 	return fmt.Sprintf("%s checksum:%x", s, f.Checksum)
@@ -85,6 +90,10 @@ func compare(before, after *fileInfo, ignore []string) map[string][2]interface{}
 		if before.Mode != after.Mode {
 			diff["mode"] = [2]interface{}{before.Mode, after.Mode}
 		}
+	}
+
+	if before.LinkTo != after.LinkTo {
+		diff["link"] = [2]interface{}{before.LinkTo, after.LinkTo}
 	}
 
 	if before.IsDir != after.IsDir {
