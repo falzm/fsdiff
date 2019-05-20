@@ -38,7 +38,8 @@ func main() {
 		if err := snapshot(
 			*cmdSnapshotArgRoot,
 			*cmdSnapshotFlagOut,
-			*cmdSnapshotFlagCarryOn); err != nil {
+			*cmdSnapshotFlagCarryOn,
+			*cmdSnapshotFlagShallow); err != nil {
 			dieOnError("unable to snapshot filesystem: %s", err)
 		}
 

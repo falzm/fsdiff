@@ -229,6 +229,18 @@ test_diff_snapshot_with_ignored_mode_change() {
     pass
 }
 
+test_diff_snapshot_shallow_mode() {
+    fsdiff snapshot --shallow -o "$TMPDIR/before.snap" "$TESTROOTDIR"
+    echo . > "$TESTROOTDIR/a/c/d"
+    fsdiff snapshot --shallow -o "$TMPDIR/after.snap" "$TESTROOTDIR"
+    fsdiff diff --nocolor \
+        --ignore mtime \
+        "$TMPDIR/before.snap" "$TMPDIR/after.snap" > "$TMPDIR/out"
+    [[ "$(<$TMPDIR/out)" == "" ]] || fail "unexpected output:\n$(<$TMPDIR/out)"
+
+    pass
+}
+
 test_diff_snapshot_summary_only() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     echo x > "$TESTROOTDIR/x"

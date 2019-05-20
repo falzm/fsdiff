@@ -40,7 +40,11 @@ func (f *fileInfo) String() string {
 		return fmt.Sprintf("%s link:%s", s, f.LinkTo)
 	}
 
-	return fmt.Sprintf("%s checksum:%x", s, f.Checksum)
+	if f.Checksum != nil {
+		return fmt.Sprintf("%s checksum:%x", s, f.Checksum)
+	}
+
+	return s
 }
 
 func checksumFile(path string) ([]byte, error) {
@@ -100,7 +104,7 @@ func compare(before, after *fileInfo, ignore []string) map[string][2]interface{}
 		diff["dir"] = [2]interface{}{before.IsDir, after.IsDir}
 	}
 
-	if !ignored("checksum", ignore) {
+	if !ignored("checksum", ignore) && (before.Checksum != nil && after.Checksum != nil) {
 		if !bytes.Equal(before.Checksum, after.Checksum) {
 			diff["checksum"] = [2]interface{}{before.Checksum, after.Checksum}
 		}

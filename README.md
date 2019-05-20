@@ -2,7 +2,8 @@
 
 `fsdiff` is a simple tool that helps finding out what changes occurred in a filesystem tree.
 
-Using `fsdiff` involves two steps: first take a `snapshot` of the target filesystem *before* modifications happen, then another one *after*. Then, the `diff` step compares the two snapshots and reports the changes found.
+Using `fsdiff` involves two steps: first take a `snapshot` of the target filesystem *before* modifications happen,
+then another one *after*. Then, the `diff` step compares the two snapshots and reports the changes found.
 
 Here is an example illustrating how to use this tool. We start with an existing file tree:
 
@@ -79,4 +80,16 @@ At the top of the sources directory, just type `make`. If everything went well, 
 
 Usage documentation is available by running the `fsdiff help` command.
 
-Note: when performing a `diff` operation, the command will exit with a return code 2 if changes have been detected between two snapshots, and 0 if no changes. Any other error returns 1.
+Note: when performing a `diff` operation, the command will exit with a return code 2 if changes have been detected
+between two snapshots, and 0 if no changes. Any other error returns 1.
+
+### Shallow mode
+
+`fsdiff` supports a *shallow* mode, in which files checksum are not computed. This can be useful if snapshotting very
+large file trees and/or large files as the operation will be much less resource-intensive, at the cost of a less
+precise change tracking: in *shallow* mode it is not possible to detect file renamings or content-focused file
+changes anymore.
+
+To use *shallow* mode, set the `--shallow` command flag during a *snapshot* operation. Note: during a
+*diff* operation, if `fsdiff` detects that either one of the snapshots is *shallow* the operation will be performed
+in *shallow mode* too.

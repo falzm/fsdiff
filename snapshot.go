@@ -22,6 +22,8 @@ var (
 		String()
 	cmdSnapshotFlagCarryOn = cmdSnapshot.Flag("carry-on", "Continue on filesystem error").
 				Bool()
+	cmdSnapshotFlagShallow = cmdSnapshot.Flag("shallow", "Don't calculate files checksum").
+				Bool()
 	cmdSnapshotArgRoot = cmdSnapshot.Arg("root", "Path to root directory").
 				Required().
 				ExistingDir()
@@ -32,6 +34,7 @@ type metadata struct {
 	FsdiffVersion string
 	Date          time.Time
 	RootDir       string
+	Shallow       bool
 }
 
 func marshal(v interface{}) []byte {
@@ -55,7 +58,7 @@ func unmarshal(data []byte, v interface{}) {
 	}
 }
 
-func snapshot(root, out string, carryOn bool) error {
+func snapshot(root, out string, carryOn bool, shallow bool) error {
 	if out == "" {
 		out = time.Now().Format("20060102150405.snap")
 	}
@@ -102,6 +105,7 @@ func snapshot(root, out string, carryOn bool) error {
 			FsdiffVersion: version + " " + commit,
 			Date:          time.Now(),
 			RootDir:       absRoot,
+			Shallow:       shallow,
 		})); err != nil {
 			return errors.Wrap(err, "bolt: unable to write metadata")
 		}
@@ -148,7 +152,8 @@ func snapshot(root, out string, carryOn bool) error {
 			}
 
 			// Index regular files (no directory or symlink) also by checksum for reverse lookup during diff
-			if !f.IsDir && f.LinkTo == "" {
+			// unless running in "shallow" mode
+			if !shallow && !f.IsDir && f.LinkTo == "" {
 				if f.Checksum, err = checksumFile(path); err != nil {
 					dieOnError("unable to compute file checksum: %s", err)
 				}

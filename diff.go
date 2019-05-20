@@ -48,6 +48,7 @@ var (
 func diff(before, after string, ignore []string, summary bool) error {
 	var (
 		nNew, nDeleted, nChanged int
+		shallow                  bool
 		moved                    = make(map[string]struct{}) // Used to track file renamings
 	)
 
@@ -64,6 +65,11 @@ func diff(before, after string, ignore []string, summary bool) error {
 	defer dbAfter.Close()
 
 	err = dbBefore.View(func(txB *bolt.Tx) error {
+		metaBucketBefore := txB.Bucket([]byte("metadata"))
+		if metaBucketBefore == nil {
+			dieOnError(`"metadata" bucket not found in "before" snapshot file`)
+		}
+
 		pathBucketBefore := txB.Bucket([]byte("by_path"))
 		if pathBucketBefore == nil {
 			dieOnError(`"by_path" bucket not found in "before" snapshot file`)
@@ -75,6 +81,30 @@ func diff(before, after string, ignore []string, summary bool) error {
 		}
 
 		err = dbAfter.View(func(txA *bolt.Tx) error {
+			metaBucketAfter := txA.Bucket([]byte("metadata"))
+			if metaBucketAfter == nil {
+				dieOnError(`"metadata" bucket not found in "after" snapshot file`)
+			}
+
+			data := metaBucketBefore.Get([]byte("info"))
+			if data == nil {
+				dieOnError(`invalid "before" snapshot metadata`)
+			}
+			metaBefore := metadata{}
+			unmarshal(data, &metaBefore)
+
+			data = metaBucketAfter.Get([]byte("info"))
+			if data == nil {
+				dieOnError(`invalid "after" snapshot metadata`)
+			}
+			metaAfter := metadata{}
+			unmarshal(data, &metaAfter)
+
+			// If either one of the before/after snapshots is shallow, diff in shallow mode
+			if metaBefore.Shallow || metaAfter.Shallow {
+				shallow = true
+			}
+
 			pathBucketAfter := txA.Bucket([]byte("by_path"))
 			if pathBucketAfter == nil {
 				dieOnError(`"by_path" bucket not found in "after" snapshot file`)
@@ -100,8 +130,9 @@ func diff(before, after string, ignore []string, summary bool) error {
 				}
 
 				// No file existed before at this path, check by checksum to see if it's a previous file moved
-				// elsewhere. We skip empty files since they cause false positives due to identical checksum.
-				if fileInfoAfter.Size > 0 {
+				// elsewhere -- unless we're in shallow mode, since we don't have the files checksum.
+				// We skip empty files since they cause false positives due to identical checksum.
+				if fileInfoAfter.Size > 0 && !shallow {
 					if beforeData := csBucketBefore.Get(fileInfoAfter.Checksum); beforeData != nil {
 						// The file existed before elsewhere, check that its properties have changed
 						fileInfoBefore := fileInfo{}

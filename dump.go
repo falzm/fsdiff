@@ -63,11 +63,12 @@ func dump(path string) error {
 
 		meta := metadata{}
 		unmarshal(data, &meta)
-		fmt.Printf("## metadata\nformat version: %d\nfsdiff version: %s\ndate: %s\nroot: %s\n",
+		fmt.Printf("## metadata\nformat version: %d\nfsdiff version: %s\ndate: %s\nroot: %s\nshallow: %t\n",
 			meta.FormatVersion,
 			meta.FsdiffVersion,
 			meta.Date,
-			meta.RootDir)
+			meta.RootDir,
+			meta.Shallow)
 
 		return nil
 	})
