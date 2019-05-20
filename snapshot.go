@@ -29,8 +29,9 @@ var (
 
 type metadata struct {
 	FormatVersion int
-	Date          time.Time
 	FsdiffVersion string
+	Date          time.Time
+	RootDir       string
 }
 
 func marshal(v interface{}) []byte {
@@ -91,10 +92,16 @@ func snapshot(root, out string, carryOn bool) error {
 			return errors.Wrap(err, "bolt: unable to create bucket")
 		}
 
+		absRoot, err := filepath.Abs(root)
+		if err != nil {
+			return errors.Wrap(err, "unable to get root directory absolute path")
+		}
+
 		if err := metaBucket.Put([]byte("info"), marshal(metadata{
-			Date:          time.Now(),
 			FormatVersion: SNAPSHOT_VERSION,
 			FsdiffVersion: version + " " + commit,
+			Date:          time.Now(),
+			RootDir:       absRoot,
 		})); err != nil {
 			return errors.Wrap(err, "bolt: unable to write metadata")
 		}
