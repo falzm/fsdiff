@@ -20,7 +20,7 @@ var (
 
 func dieOnError(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, fmt.Sprintf("error: %s\n", format), a...)
-	os.Exit(2)
+	os.Exit(1)
 }
 
 func init() {
