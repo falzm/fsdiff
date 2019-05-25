@@ -1,0 +1,39 @@
+builds:
+- env:
+  - CGO_ENABLED=0
+  goarch:
+  - amd64
+
+archives:
+  -
+    name_template: "{{ .ProjectName }}_{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ .Version }}dev"
+
+release:
+  github:
+    owner: falzm
+    name: fsdiff
+
+nfpm:
+  homepage: https://github.com/falzm/fsdiff
+  maintainer: Marc Falzon <marc@baha.mu>
+  description: Filesystem changes tracking tool
+  license: MIT
+  formats:
+    - deb
+    - rpm
+
+brew:
+  github:
+    owner: falzm
+    name: homebrew-fsdiff
+  commit_author:
+    name: Marc Falzon
+    email: marc@baha.mu
+  homepage: https://github.com/falzm/fsdiff
+  description: Filesystem changes tracking tool
