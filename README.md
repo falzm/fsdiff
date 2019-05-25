@@ -63,7 +63,16 @@ $ fsdiff diff before.snap after.snap
 
 ### Pre-compiled binaries
 
-Pre-compiled binaries are available for [stable releases](https://github.com/falzm/fsdiff/releases).
+Pre-compiled binaries for GNU/Linux and macOS are available for [stable releases](https://github.com/falzm/fsdiff/releases).
+
+### Using Homebrew
+
+On macOS, you can use the [Homebrew](https://brew.sh/) packaging system:
+
+```console
+brew tap falzm/fsdiff
+brew install fsdiff
+```
 
 ### Using `go get`
 
