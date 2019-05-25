@@ -56,7 +56,7 @@ func main() {
 		}
 
 	case cmdDump.FullCommand():
-		if err := dump(*cmdDumpArgSnapshot); err != nil {
+		if err := dump(*cmdDumpArgSnapshot, *cmdDumpFlagMetadata); err != nil {
 			dieOnError("%s", err)
 		}
 	}
