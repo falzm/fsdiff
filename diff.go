@@ -45,12 +45,21 @@ var (
 	2) For each file in _before_ snapshot, check if it exists in the *after* snapshot:
 	   - if it doesn't, mark the file [deleted]
 */
-func doDiff(before, after string, ignore []string, summary bool) error {
+func doDiff() error {
 	var (
+		before      = *cmdDiffArgSnapshotBefore
+		after       = *cmdDiffArgSnapshotAfter
+		ignore      = *cmdDiffFlagIgnore
+		summaryOnly = *cmdDiffFlagSummary
+
 		nNew, nDeleted, nChanged int
 		shallow                  bool
 		moved                    = make(map[string]struct{}) // Used to track file renamings
 	)
+
+	if *cmdDiffFlagNoColor {
+		ansi.DisableColors(true)
+	}
 
 	snapBefore, err := snapshot.Open(before)
 	if err != nil {
@@ -86,7 +95,7 @@ func doDiff(before, after string, ignore []string, summary bool) error {
 
 					fileDiff := compare(&fileInfoBefore, &fileInfoAfter, ignore)
 					if len(fileDiff) > 0 {
-						if !summary {
+						if !summaryOnly {
 							printChanged(&fileInfoBefore, &fileInfoAfter, fileDiff)
 						}
 						nChanged++
@@ -108,7 +117,7 @@ func doDiff(before, after string, ignore []string, summary bool) error {
 						moved[fileInfoBefore.Path] = struct{}{}
 
 						fileDiff := compare(&fileInfoBefore, &fileInfoAfter, ignore)
-						if !summary {
+						if !summaryOnly {
 							printChanged(&fileInfoBefore, &fileInfoAfter, fileDiff)
 						}
 						nChanged++
@@ -117,7 +126,7 @@ func doDiff(before, after string, ignore []string, summary bool) error {
 				}
 
 				// No file match this checksum, this is a new file
-				if !summary {
+				if !summaryOnly {
 					printNew(string(path))
 				}
 				nNew++
@@ -129,7 +138,7 @@ func doDiff(before, after string, ignore []string, summary bool) error {
 				if afterData := byPathAfter.Get(path); afterData == nil {
 					// Before marking a file as deleted, check if it is not the result of a renaming
 					if _, ok := moved[string(path)]; !ok {
-						if !summary {
+						if !summaryOnly {
 							printDeleted(string(path))
 						}
 						nDeleted++
@@ -148,7 +157,7 @@ func doDiff(before, after string, ignore []string, summary bool) error {
 	})
 
 	if nNew > 0 || nChanged > 0 || nDeleted > 0 {
-		if !summary {
+		if !summaryOnly {
 			fmt.Println()
 		}
 		fmt.Printf("%d new, %d changed, %d deleted\n",

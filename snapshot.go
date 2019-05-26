@@ -29,7 +29,14 @@ var (
 				ExistingDir()
 )
 
-func doSnapshot(root, out string, carryOn bool, shallow bool) error {
+func doSnapshot() error {
+	var (
+		root    = *cmdSnapshotArgRoot
+		out     = *cmdSnapshotFlagOut
+		carryOn = *cmdSnapshotFlagCarryOn
+		shallow = *cmdSnapshotFlagShallow
+	)
+
 	if out == "" {
 		out = time.Now().Format("20060102150405.snap")
 	}

@@ -18,7 +18,12 @@ var (
 				ExistingFile()
 )
 
-func doDump(path string, onlyMetadata bool) error {
+func doDump() error {
+	var (
+		path         = *cmdDumpArgSnapshot
+		metadataOnly = *cmdDumpFlagMetadata
+	)
+
 	snap, err := snapshot.Open(path)
 	if err != nil {
 		return errors.Wrap(err, "unable to open snapshot file")
@@ -26,7 +31,7 @@ func doDump(path string, onlyMetadata bool) error {
 	defer snap.Close()
 
 	return snap.Read(func(byPath, byCS *bolt.Bucket) error {
-		if !onlyMetadata {
+		if !metadataOnly {
 			fmt.Printf("## by_path (%d)\n", byPath.Stats().KeyN)
 			c := byPath.Cursor()
 			for k, v := c.First(); k != nil; k, v = c.Next() {

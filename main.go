@@ -5,7 +5,6 @@ import (
 	"os"
 	"runtime"
 
-	"github.com/mgutz/ansi"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -30,31 +29,20 @@ func init() {
 }
 
 func main() {
+	var err error
+
 	switch kingpin.Parse() {
 	case cmdSnapshot.FullCommand():
-		if err := doSnapshot(
-			*cmdSnapshotArgRoot,
-			*cmdSnapshotFlagOut,
-			*cmdSnapshotFlagCarryOn,
-			*cmdSnapshotFlagShallow); err != nil {
-			dieOnError("%s", err)
-		}
+		err = doSnapshot()
 
 	case cmdDiff.FullCommand():
-		if *cmdDiffFlagNoColor {
-			ansi.DisableColors(true)
-		}
-		if err := doDiff(
-			*cmdDiffArgSnapshotBefore,
-			*cmdDiffArgSnapshotAfter,
-			*cmdDiffFlagIgnore,
-			*cmdDiffFlagSummary); err != nil {
-			dieOnError("%s", err)
-		}
+		err = doDiff()
 
 	case cmdDump.FullCommand():
-		if err := doDump(*cmdDumpArgSnapshot, *cmdDumpFlagMetadata); err != nil {
-			dieOnError("%s", err)
-		}
+		err = doDump()
+	}
+
+	if err != nil {
+		dieOnError("%s", err)
 	}
 }
