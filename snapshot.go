@@ -162,7 +162,7 @@ func snapshot(root, out string, carryOn bool, shallow bool) error {
 			// Index regular files also by checksum for reverse lookup during diff unless running in "shallow" mode
 			if !shallow && !f.IsDir && !f.IsSock && !f.IsPipe && !f.IsDev && f.LinkTo == "" {
 				if f.Checksum, err = checksumFile(path); err != nil {
-					dieOnError("unable to compute file checksum: %s", err)
+					return errors.Wrap(err, "unable to compute file checksum")
 				}
 
 				if err := csBucket.Put(f.Checksum, marshal(f)); err != nil {

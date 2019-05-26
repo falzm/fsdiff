@@ -40,7 +40,7 @@ func main() {
 			*cmdSnapshotFlagOut,
 			*cmdSnapshotFlagCarryOn,
 			*cmdSnapshotFlagShallow); err != nil {
-			dieOnError("unable to snapshot filesystem: %s", err)
+			dieOnError("%s", err)
 		}
 
 	case cmdDiff.FullCommand():
