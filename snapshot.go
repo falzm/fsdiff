@@ -1,21 +1,21 @@
 package main
 
 import (
-	"bytes"
-	"encoding/gob"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
 
+	"github.com/falzm/fsdiff/snapshot"
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
+	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
 
-const SNAPSHOT_VERSION = 1
-
 var (
+	cmdSnapshot = kingpin.Command("snapshot", "Scan file tree and record object properties").
+			Alias("snap")
 	cmdSnapshotFlagOut = cmdSnapshot.Flag("output-file",
 		"File path to write snapshot to (default: <YYYYMMDDhhmmss>.snap)").
 		Short('o').
@@ -29,36 +29,7 @@ var (
 				ExistingDir()
 )
 
-type metadata struct {
-	FormatVersion int
-	FsdiffVersion string
-	Date          time.Time
-	RootDir       string
-	Shallow       bool
-}
-
-func marshal(v interface{}) []byte {
-	buf := new(bytes.Buffer)
-	enc := gob.NewEncoder(buf)
-
-	err := enc.Encode(v)
-	if err != nil {
-		dieOnError("gob: cannot marshal: %s", err)
-	}
-
-	return buf.Bytes()
-}
-
-func unmarshal(data []byte, v interface{}) {
-	buf := bytes.NewBuffer(data)
-	dec := gob.NewDecoder(buf)
-	err := dec.Decode(v)
-	if err != nil {
-		dieOnError("gob: cannot unmarshal: %s", err)
-	}
-}
-
-func snapshot(root, out string, carryOn bool, shallow bool) error {
+func doSnapshot(root, out string, carryOn bool, shallow bool) error {
 	if out == "" {
 		out = time.Now().Format("20060102150405.snap")
 	}
@@ -67,57 +38,13 @@ func snapshot(root, out string, carryOn bool, shallow bool) error {
 		root += "/"
 	}
 
-	db, err := bolt.Open(out, 0600, &bolt.Options{
-		Timeout: 1 * time.Second,
-		OpenFile: func(name string, flag int, perm os.FileMode) (*os.File, error) {
-			f, err := os.OpenFile(name, flag, perm)
-			if err != nil {
-				return nil, err
-			}
-			f.Truncate(0)
-			return f, nil
-		},
-	})
+	snap, err := snapshot.New(out, root, shallow)
 	if err != nil {
 		return errors.Wrap(err, "unable to open snapshot file")
 	}
-	defer db.Close()
+	defer snap.Close()
 
-	return db.Update(func(tx *bolt.Tx) error {
-		var (
-			metaBucket *bolt.Bucket
-			pathBucket *bolt.Bucket
-			csBucket   *bolt.Bucket
-			err        error
-		)
-
-		if metaBucket, err = tx.CreateBucket([]byte("metadata")); err != nil {
-			return errors.Wrap(err, "bolt: unable to create bucket")
-		}
-
-		absRoot, err := filepath.Abs(root)
-		if err != nil {
-			return errors.Wrap(err, "unable to get root directory absolute path")
-		}
-
-		if err := metaBucket.Put([]byte("info"), marshal(metadata{
-			FormatVersion: SNAPSHOT_VERSION,
-			FsdiffVersion: version + " " + commit,
-			Date:          time.Now(),
-			RootDir:       absRoot,
-			Shallow:       shallow,
-		})); err != nil {
-			return errors.Wrap(err, "bolt: unable to write metadata")
-		}
-
-		if pathBucket, err = tx.CreateBucket([]byte("by_path")); err != nil {
-			return errors.Wrap(err, "bolt: unable to create bucket")
-		}
-
-		if csBucket, err = tx.CreateBucket([]byte("by_cs")); err != nil {
-			return errors.Wrap(err, "bolt: unable to create bucket")
-		}
-
+	return snap.Write(func(byPath, byCS *bolt.Bucket) error {
 		if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 			// Skip the root directory itself
 			if path == root {
@@ -165,12 +92,20 @@ func snapshot(root, out string, carryOn bool, shallow bool) error {
 					return errors.Wrap(err, "unable to compute file checksum")
 				}
 
-				if err := csBucket.Put(f.Checksum, marshal(f)); err != nil {
+				data, err := snapshot.Marshal(f)
+				if err != nil {
+					return errors.Wrap(err, "unable to serialize snapshot data")
+				}
+				if err := byCS.Put(f.Checksum, data); err != nil {
 					return errors.Wrap(err, "bolt: unable to write to bucket")
 				}
 			}
 
-			if err := pathBucket.Put([]byte(strings.TrimPrefix(path, root)), marshal(f)); err != nil {
+			data, err := snapshot.Marshal(f)
+			if err != nil {
+				return errors.Wrap(err, "unable to serialize snapshot data")
+			}
+			if err := byPath.Put([]byte(strings.TrimPrefix(path, root)), data); err != nil {
 				return errors.Wrap(err, "bolt: unable to write to bucket")
 			}
 

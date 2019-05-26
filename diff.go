@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
+	"github.com/falzm/fsdiff/snapshot"
 	"github.com/mgutz/ansi"
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
@@ -45,79 +45,44 @@ var (
 	2) For each file in _before_ snapshot, check if it exists in the *after* snapshot:
 	   - if it doesn't, mark the file [deleted]
 */
-func diff(before, after string, ignore []string, summary bool) error {
+func doDiff(before, after string, ignore []string, summary bool) error {
 	var (
 		nNew, nDeleted, nChanged int
 		shallow                  bool
 		moved                    = make(map[string]struct{}) // Used to track file renamings
 	)
 
-	dbBefore, err := bolt.Open(before, 0600, &bolt.Options{Timeout: 1 * time.Second})
+	snapBefore, err := snapshot.Open(before)
 	if err != nil {
 		return errors.Wrap(err, `unable to open "before" snapshot file`)
 	}
-	defer dbBefore.Close()
+	defer snapBefore.Close()
 
-	dbAfter, err := bolt.Open(after, 0600, &bolt.Options{Timeout: 1 * time.Second})
+	snapAfter, err := snapshot.Open(after)
 	if err != nil {
 		return errors.Wrap(err, `unable to open "after" snapshot file`)
 	}
-	defer dbAfter.Close()
+	defer snapAfter.Close()
 
-	err = dbBefore.View(func(txB *bolt.Tx) error {
-		metaBucketBefore := txB.Bucket([]byte("metadata"))
-		if metaBucketBefore == nil {
-			dieOnError(`"metadata" bucket not found in "before" snapshot file`)
-		}
-
-		pathBucketBefore := txB.Bucket([]byte("by_path"))
-		if pathBucketBefore == nil {
-			dieOnError(`"by_path" bucket not found in "before" snapshot file`)
-		}
-
-		csBucketBefore := txB.Bucket([]byte("by_cs"))
-		if csBucketBefore == nil {
-			dieOnError(`"by_cs" bucket not found in "before" snapshot file`)
-		}
-
-		err = dbAfter.View(func(txA *bolt.Tx) error {
-			metaBucketAfter := txA.Bucket([]byte("metadata"))
-			if metaBucketAfter == nil {
-				dieOnError(`"metadata" bucket not found in "after" snapshot file`)
-			}
-
-			data := metaBucketBefore.Get([]byte("info"))
-			if data == nil {
-				dieOnError(`invalid "before" snapshot metadata`)
-			}
-			metaBefore := metadata{}
-			unmarshal(data, &metaBefore)
-
-			data = metaBucketAfter.Get([]byte("info"))
-			if data == nil {
-				dieOnError(`invalid "after" snapshot metadata`)
-			}
-			metaAfter := metadata{}
-			unmarshal(data, &metaAfter)
-
+	snapBefore.Read(func(byPathBefore, byCSBefore *bolt.Bucket) error {
+		snapAfter.Read(func(byPathAfter, byCSAfter *bolt.Bucket) error {
 			// If either one of the before/after snapshots is shallow, diff in shallow mode
-			if metaBefore.Shallow || metaAfter.Shallow {
+			if snapBefore.Metadata().Shallow || snapAfter.Metadata().Shallow {
 				shallow = true
 			}
 
-			pathBucketAfter := txA.Bucket([]byte("by_path"))
-			if pathBucketAfter == nil {
-				dieOnError(`"by_path" bucket not found in "after" snapshot file`)
-			}
-
-			if err := pathBucketAfter.ForEach(func(path, data []byte) error {
+			byPathAfter.ForEach(func(path, data []byte) error {
 				fileInfoAfter := fileInfo{}
-				unmarshal(data, &fileInfoAfter)
+				if err := snapshot.Unmarshal(data, &fileInfoAfter); err != nil {
+					dieOnError("unable to read snapshot data: %s", err)
+				}
 
-				if beforeData := pathBucketBefore.Get(path); beforeData != nil {
+				if beforeData := byPathBefore.Get(path); beforeData != nil {
 					// The file existed before, check that its properties have changed
 					fileInfoBefore := fileInfo{}
-					unmarshal(beforeData, &fileInfoBefore)
+					if err := snapshot.Unmarshal(beforeData, &fileInfoBefore); err != nil {
+						dieOnError("unable to read snapshot data: %s", err)
+					}
 
 					fileDiff := compare(&fileInfoBefore, &fileInfoAfter, ignore)
 					if len(fileDiff) > 0 {
@@ -133,10 +98,12 @@ func diff(before, after string, ignore []string, summary bool) error {
 				// elsewhere -- unless we're in shallow mode, since we don't have the files checksum.
 				// We skip empty files since they cause false positives due to identical checksum.
 				if fileInfoAfter.Size > 0 && !shallow {
-					if beforeData := csBucketBefore.Get(fileInfoAfter.Checksum); beforeData != nil {
+					if beforeData := byCSBefore.Get(fileInfoAfter.Checksum); beforeData != nil {
 						// The file existed before elsewhere, check that its properties have changed
 						fileInfoBefore := fileInfo{}
-						unmarshal(beforeData, &fileInfoBefore)
+						if err := snapshot.Unmarshal(beforeData, &fileInfoBefore); err != nil {
+							dieOnError("unable to read snapshot data: %s", err)
+						}
 
 						moved[fileInfoBefore.Path] = struct{}{}
 
@@ -155,13 +122,11 @@ func diff(before, after string, ignore []string, summary bool) error {
 				}
 				nNew++
 				return nil
-			}); err != nil {
-				dieOnError("bolt: unable to loop on bucket keys: %s", err)
-			}
+			})
 
 			// Perform reverse lookup to detect deleted files
-			if err := pathBucketBefore.ForEach(func(path, data []byte) error {
-				if afterData := pathBucketAfter.Get(path); afterData == nil {
+			if err := byPathBefore.ForEach(func(path, data []byte) error {
+				if afterData := byPathAfter.Get(path); afterData == nil {
 					// Before marking a file as deleted, check if it is not the result of a renaming
 					if _, ok := moved[string(path)]; !ok {
 						if !summary {

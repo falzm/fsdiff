@@ -13,9 +13,6 @@ var (
 	version   string
 	commit    string
 	buildDate string
-
-	cmdSnapshot = kingpin.Command("snapshot", "Scan file tree and record object properties").
-			Alias("snap")
 )
 
 func dieOnError(format string, a ...interface{}) {
@@ -35,7 +32,7 @@ func init() {
 func main() {
 	switch kingpin.Parse() {
 	case cmdSnapshot.FullCommand():
-		if err := snapshot(
+		if err := doSnapshot(
 			*cmdSnapshotArgRoot,
 			*cmdSnapshotFlagOut,
 			*cmdSnapshotFlagCarryOn,
@@ -47,7 +44,7 @@ func main() {
 		if *cmdDiffFlagNoColor {
 			ansi.DisableColors(true)
 		}
-		if err := diff(
+		if err := doDiff(
 			*cmdDiffArgSnapshotBefore,
 			*cmdDiffArgSnapshotAfter,
 			*cmdDiffFlagIgnore,
@@ -56,7 +53,7 @@ func main() {
 		}
 
 	case cmdDump.FullCommand():
-		if err := dump(*cmdDumpArgSnapshot, *cmdDumpFlagMetadata); err != nil {
+		if err := doDump(*cmdDumpArgSnapshot, *cmdDumpFlagMetadata); err != nil {
 			dieOnError("%s", err)
 		}
 	}

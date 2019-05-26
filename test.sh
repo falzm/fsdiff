@@ -72,6 +72,15 @@ test_snapshot_rootdir() {
     pass
 }
 
+test_snapshot_symlinked_rootdir() {
+    ln -s "$TESTROOTDIR" "$TMPDIR/root_l"
+    fsdiff snapshot -o "$TMPDIR/snap" "$TMPDIR/root_l" ; rc=$?
+    [[ $rc -eq 0 ]] || fail "expected rc 0, got $rc"
+    [[ -e "$TMPDIR/snap" ]] || fail "snapshot file not created"
+
+    pass
+}
+
 test_snapshot_rootdir_carry_on_error() {
     chmod 000 "$TESTROOTDIR/a"
     fsdiff snapshot --carry-on -o "$TMPDIR/snap" "$TESTROOTDIR" ; rc=$?

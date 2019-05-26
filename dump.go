@@ -1,11 +1,10 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"log"
-	"time"
 
+	"github.com/falzm/fsdiff/snapshot"
+	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
 )
@@ -19,54 +18,37 @@ var (
 				ExistingFile()
 )
 
-func dump(path string, onlyMetadata bool) error {
-	db, err := bolt.Open(path, 0600, &bolt.Options{Timeout: 1 * time.Second})
+func doDump(path string, onlyMetadata bool) error {
+	snap, err := snapshot.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		return errors.Wrap(err, "unable to open snapshot file")
 	}
-	defer db.Close()
+	defer snap.Close()
 
-	return db.View(func(tx *bolt.Tx) error {
+	return snap.Read(func(byPath, byCS *bolt.Bucket) error {
 		if !onlyMetadata {
-			pathBucket := tx.Bucket([]byte("by_path"))
-			if pathBucket == nil {
-				return errors.New(`"by_path" bucket not found in snapshot file`)
-			}
-
-			fmt.Printf("## by_path (%d)\n", pathBucket.Stats().KeyN)
-			c := pathBucket.Cursor()
+			fmt.Printf("## by_path (%d)\n", byPath.Stats().KeyN)
+			c := byPath.Cursor()
 			for k, v := c.First(); k != nil; k, v = c.Next() {
 				fi := fileInfo{}
-				unmarshal(v, &fi)
+				if err := snapshot.Unmarshal(v, &fi); err != nil {
+					return errors.Wrap(err, "unable to read snapshot data")
+				}
 				fmt.Printf("%s %s\n", k, fi.String())
 			}
 
-			csBucket := tx.Bucket([]byte("by_cs"))
-			if csBucket == nil {
-				return errors.New(`"by_cs" bucket not found in snapshot file`)
-			}
-
-			fmt.Printf("## by_cs (%d)\n", csBucket.Stats().KeyN)
-			c = csBucket.Cursor()
+			fmt.Printf("## by_cs (%d)\n", byCS.Stats().KeyN)
+			c = byCS.Cursor()
 			for k, v := c.First(); k != nil; k, v = c.Next() {
 				fi := fileInfo{}
-				unmarshal(v, &fi)
+				if err := snapshot.Unmarshal(v, &fi); err != nil {
+					return errors.Wrap(err, "unable to read snapshot data")
+				}
 				fmt.Printf("%x %s\n", k, fi.String())
 			}
 		}
 
-		metaBucket := tx.Bucket([]byte("metadata"))
-		if metaBucket == nil {
-			return errors.New(`"metadata" bucket not found in snapshot file`)
-		}
-
-		data := metaBucket.Get([]byte("info"))
-		if data == nil {
-			return errors.New("invalid snapshot metadata")
-		}
-
-		meta := metadata{}
-		unmarshal(data, &meta)
+		meta := snap.Metadata()
 		fmt.Printf("## metadata\nformat version: %d\nfsdiff version: %s\ndate: %s\nroot: %s\nshallow: %t\n",
 			meta.FormatVersion,
 			meta.FsdiffVersion,
