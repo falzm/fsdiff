@@ -150,7 +150,7 @@ test_snapshot_with_exclude_flag_and_from() {
     pass
 }
 
-test_diff_snapshot_containing_symlinks() {
+test_diff_containing_symlinks() {
     ln -s a "$TESTROOTDIR/a_l"
     ln -s z "$TESTROOTDIR/z_l"
     fsdiff snapshot -o "$TMPDIR/snap" "$TESTROOTDIR" ; rc=$?
@@ -160,7 +160,7 @@ test_diff_snapshot_containing_symlinks() {
     pass
 }
 
-test_diff_snapshot_without_changes() {
+test_diff_without_changes() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
     fsdiff diff --nocolor "$TMPDIR/before.snap" "$TMPDIR/after.snap" > "$TMPDIR/out"
@@ -169,7 +169,7 @@ test_diff_snapshot_without_changes() {
     pass
 }
 
-test_diff_snapshot_with_new_file() {
+test_diff_with_new_file() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     echo x > "$TESTROOTDIR/x"
     fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
@@ -179,7 +179,7 @@ test_diff_snapshot_with_new_file() {
     pass
 }
 
-test_diff_snapshot_with_deleted_file() {
+test_diff_with_deleted_file() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     rm -rf "$TESTROOTDIR/z"
     fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
@@ -189,7 +189,7 @@ test_diff_snapshot_with_deleted_file() {
     pass
 }
 
-test_diff_snapshot_with_modified_file() {
+test_diff_with_modified_file() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     echo zz > "$TESTROOTDIR/z"
     fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
@@ -202,7 +202,7 @@ test_diff_snapshot_with_modified_file() {
     pass
 }
 
-test_diff_snapshot_with_modified_symlink() {
+test_diff_with_modified_symlink() {
     ln -s a "$TESTROOTDIR/a_l"
     ln -s z "$TESTROOTDIR/z_l"
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
@@ -218,7 +218,7 @@ test_diff_snapshot_with_modified_symlink() {
     pass
 }
 
-test_diff_snapshot_with_renamed_file() {
+test_diff_with_renamed_file() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     mv "$TESTROOTDIR/z" "$TESTROOTDIR/zz"
     fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
@@ -228,7 +228,7 @@ test_diff_snapshot_with_renamed_file() {
     pass
 }
 
-test_diff_snapshot_with_ignored_mtime_change() {
+test_diff_with_ignored_mtime_change() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     sleep 1s; touch "$TESTROOTDIR/z"
     fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
@@ -240,7 +240,7 @@ test_diff_snapshot_with_ignored_mtime_change() {
     pass
 }
 
-test_diff_snapshot_with_ignored_cs_change() {
+test_diff_with_ignored_cs_change() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     echo . > "$TESTROOTDIR/z"
     fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
@@ -253,7 +253,7 @@ test_diff_snapshot_with_ignored_cs_change() {
     pass
 }
 
-test_diff_snapshot_with_ignored_size_change() {
+test_diff_with_ignored_size_change() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     echo zzz > "$TESTROOTDIR/z"
     fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
@@ -267,7 +267,7 @@ test_diff_snapshot_with_ignored_size_change() {
     pass
 }
 
-test_diff_snapshot_with_ignored_mode_change() {
+test_diff_with_ignored_mode_change() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     chmod 777 "$TESTROOTDIR/z"
     fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
@@ -282,7 +282,7 @@ test_diff_snapshot_with_ignored_mode_change() {
     pass
 }
 
-test_diff_snapshot_shallow_mode() {
+test_diff_shallow_mode() {
     fsdiff snapshot --shallow -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     echo . > "$TESTROOTDIR/a/c/d"
     fsdiff snapshot --shallow -o "$TMPDIR/after.snap" "$TESTROOTDIR"
@@ -294,7 +294,7 @@ test_diff_snapshot_shallow_mode() {
     pass
 }
 
-test_diff_snapshot_summary_only() {
+test_diff_summary_only() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     echo x > "$TESTROOTDIR/x"
     echo . > "$TESTROOTDIR/a/c/d"
