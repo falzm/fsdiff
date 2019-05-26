@@ -42,7 +42,7 @@ function skip() {
 }
 
 function run_test() {
-    setup
+    setup || die "unable to setup test environment"
 
     echo "🚧 Running test ${1/test_}"
     $1 
@@ -257,5 +257,7 @@ test_diff_snapshot_summary_only() {
 }
 
 ##############################################################################
+
+which fsdiff > /dev/null || die "unable to find fsdiff command"
 
 main

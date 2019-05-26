@@ -9,6 +9,7 @@ GO_BUILDOPTS := -ldflags "-s -w \
 fsdiff:
 	@go build $(GO_BUILDOPTS) -mod=vendor
 
+export PATH := $(PWD):$(PATH)
 test: fsdiff
 	@./test.sh
 
