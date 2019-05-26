@@ -22,6 +22,7 @@ var (
 				Bool()
 	cmdSnapshotFlagExclude = cmdSnapshot.Flag("exclude",
 		"gitignore-compatible exclusion pattern (see https://git-scm.com/docs/gitignore)").
+		PlaceHolder("PATTERN").
 		Strings()
 	cmdSnapshotFlagExcludeFrom = cmdSnapshot.Flag("exclude-from",
 		"File path to read gitignore-compatible patterns from (see https://git-scm.com/docs/gitignore)").

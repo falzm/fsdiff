@@ -10,12 +10,17 @@ import (
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/src-d/go-git.v4/plumbing/format/gitignore"
 )
 
 var (
 	fileProperties = []string{"size", "mtime", "uid", "gid", "mode", "checksum"}
 
-	cmdDiff           = kingpin.Command("diff", "Show the differences between 2 snapshots")
+	cmdDiff            = kingpin.Command("diff", "Show the differences between 2 snapshots")
+	cmdDiffFlagExclude = cmdDiff.Flag("exclude",
+		"gitignore-compatible exclusion pattern (see https://git-scm.com/docs/gitignore)").
+		PlaceHolder("PATTERN").
+		Strings()
 	cmdDiffFlagIgnore = cmdDiff.Flag("ignore", fmt.Sprintf("Ignore file properties (%s)",
 		strings.Join(fileProperties, ", "))).
 		PlaceHolder("PROPERTY").
@@ -49,17 +54,25 @@ func doDiff() error {
 	var (
 		before      = *cmdDiffArgSnapshotBefore
 		after       = *cmdDiffArgSnapshotAfter
+		exclude     = *cmdDiffFlagExclude
 		ignore      = *cmdDiffFlagIgnore
 		summaryOnly = *cmdDiffFlagSummary
 
 		nNew, nDeleted, nChanged int
 		shallow                  bool
 		moved                    = make(map[string]struct{}) // Used to track file renamings
+		excludedPatterns         []gitignore.Pattern
+		excluded                 gitignore.Matcher
 	)
 
 	if *cmdDiffFlagNoColor {
 		ansi.DisableColors(true)
 	}
+
+	for _, p := range exclude {
+		excludedPatterns = append(excludedPatterns, gitignore.ParsePattern(p, nil))
+	}
+	excluded = gitignore.NewMatcher(excludedPatterns)
 
 	snapBefore, err := snapshot.Open(before)
 	if err != nil {
@@ -84,6 +97,11 @@ func doDiff() error {
 				fileInfoAfter := fileInfo{}
 				if err := snapshot.Unmarshal(data, &fileInfoAfter); err != nil {
 					dieOnError("unable to read snapshot data: %s", err)
+				}
+
+				// Skip files matching the excluded patterns
+				if excluded.Match(strings.Split(fileInfoAfter.Path, "/"), fileInfoAfter.IsDir) {
+					return nil
 				}
 
 				if beforeData := byPathBefore.Get(path); beforeData != nil {

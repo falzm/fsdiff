@@ -294,6 +294,18 @@ test_diff_shallow_mode() {
     pass
 }
 
+test_diff_with_exclude_flag() {
+    fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
+    echo . > "$TESTROOTDIR/a/c/d"
+    fsdiff snapshot -o "$TMPDIR/after.snap" "$TESTROOTDIR"
+    fsdiff diff --nocolor \
+        --exclude a/c/ \
+        "$TMPDIR/before.snap" "$TMPDIR/after.snap" > "$TMPDIR/out"
+    [[ "$(<$TMPDIR/out)" == "" ]] || fail "unexpected output:\n$(<$TMPDIR/out)"
+
+    pass
+}
+
 test_diff_summary_only() {
     fsdiff snapshot -o "$TMPDIR/before.snap" "$TESTROOTDIR"
     echo x > "$TESTROOTDIR/x"
