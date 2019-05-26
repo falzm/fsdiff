@@ -103,7 +103,51 @@ test_dump_snapshot() {
     by_cs=$(sed -ne '/## by_cs/,/^## metadata/p' "$TMPDIR/out" | grep -v '#' | wc -l)
     [[ $by_cs -eq 3 ]] || fail "expected 3 entries in section by_path, got $by_cs"
 
-    pass 
+    pass
+}
+
+test_snapshot_with_exclude_flag() {
+    fsdiff snapshot -o "$TMPDIR/snap" --exclude a "$TESTROOTDIR"
+    fsdiff dump "$TMPDIR/snap" 1> "$TMPDIR/out"
+    [[ $? -eq 0 ]] || fail "return code is not 0"
+
+    by_path=$(sed -ne '/## by_path/,/^## by_cs/p' "$TMPDIR/out" | grep -v '#' | wc -l)
+    [[ $by_path -eq 1 ]] || fail "expected 1 entry in section by_path, got $by_path"
+
+    by_cs=$(sed -ne '/## by_cs/,/^## metadata/p' "$TMPDIR/out" | grep -v '#' | wc -l)
+    [[ $by_cs -eq 1 ]] || fail "expected 1 entry in section by_path, got $by_cs"
+
+    pass
+}
+
+test_snapshot_with_exclude_from() {
+    echo a > "$TMPDIR/exclude"
+    fsdiff snapshot -o "$TMPDIR/snap" --exclude-from "$TMPDIR/exclude" "$TESTROOTDIR"
+    fsdiff dump "$TMPDIR/snap" 1> "$TMPDIR/out"
+    [[ $? -eq 0 ]] || fail "return code is not 0"
+
+    by_path=$(sed -ne '/## by_path/,/^## by_cs/p' "$TMPDIR/out" | grep -v '#' | wc -l)
+    [[ $by_path -eq 1 ]] || fail "expected 1 entry in section by_path, got $by_path"
+
+    by_cs=$(sed -ne '/## by_cs/,/^## metadata/p' "$TMPDIR/out" | grep -v '#' | wc -l)
+    [[ $by_cs -eq 1 ]] || fail "expected 1 entry in section by_path, got $by_cs"
+
+    pass
+}
+
+test_snapshot_with_exclude_flag_and_from() {
+    echo a > "$TMPDIR/exclude"
+    fsdiff snapshot -o "$TMPDIR/snap" --exclude-from "$TMPDIR/exclude" --exclude z "$TESTROOTDIR"
+    fsdiff dump "$TMPDIR/snap" 1> "$TMPDIR/out"
+    [[ $? -eq 0 ]] || fail "return code is not 0"
+
+    by_path=$(sed -ne '/## by_path/,/^## by_cs/p' "$TMPDIR/out" | grep -v '#' | wc -l)
+    [[ $by_path -eq 0 ]] || fail "expected 0 entry in section by_path, got $by_path"
+
+    by_cs=$(sed -ne '/## by_cs/,/^## metadata/p' "$TMPDIR/out" | grep -v '#' | wc -l)
+    [[ $by_cs -eq 0 ]] || fail "expected 0 entry in section by_path, got $by_cs"
+
+    pass
 }
 
 test_diff_snapshot_containing_symlinks() {

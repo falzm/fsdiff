@@ -12,4 +12,5 @@ require (
 	go.etcd.io/bbolt v1.3.3-0.20190510211640-4af6cfab7010
 	golang.org/x/sys v0.0.0-20190516110030-61b9204099cb // indirect
 	gopkg.in/alecthomas/kingpin.v2 v2.2.6
+	gopkg.in/src-d/go-git.v4 v4.11.0
 )

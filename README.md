@@ -82,7 +82,8 @@ go get github.com/falzm/fsdiff
 
 ### From source (requires a Go compiler >= 1.9)
 
-At the top of the sources directory, just type `make`. If everything went well, you should end up with binary named `fsdiff` in your current directory.
+At the top of the sources directory, just type `make fsdiff`. If everything went well, you should end up with binary
+named `fsdiff` in your current directory.
 
 
 ## Usage
@@ -91,6 +92,16 @@ Usage documentation is available by running the `fsdiff help` command.
 
 Note: when performing a `diff` operation, the command will exit with a return code 2 if changes have been detected
 between two snapshots, and 0 if no changes. Any other error returns 1.
+
+### File exclusion
+
+During a `snapshot`, it is possible to specify *exclusion* patterns using the `--exclude` and `--exclude-from` flags
+to prevent matching files from being included in the resulting snapshot. The format used is compatible with the
+[gitignore](https://git-scm.com/docs/gitignore) format: please refer to the documentation to learn more about it.
+
+Note: patterns specified with the `--exclude` flag are evaluated after the patterns listed in the file
+`--exclude-from` and are added to the global patterns list. This means that you can override an *exclusion* pattern
+specified in the file by providing the same pattern in *inclusion* mode (i.e. by prefixing it with `!`).
 
 ### Shallow mode
 
@@ -102,3 +113,4 @@ changes anymore.
 To use *shallow* mode, set the `--shallow` command flag during a *snapshot* operation. Note: during a
 *diff* operation, if `fsdiff` detects that either one of the snapshots is *shallow* the operation will be performed
 in *shallow mode* too.
+ 

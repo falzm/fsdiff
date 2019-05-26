@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,17 +12,24 @@ import (
 	"github.com/pkg/errors"
 	bolt "go.etcd.io/bbolt"
 	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"gopkg.in/src-d/go-git.v4/plumbing/format/gitignore"
 )
 
 var (
 	cmdSnapshot = kingpin.Command("snapshot", "Scan file tree and record object properties").
 			Alias("snap")
+	cmdSnapshotFlagCarryOn = cmdSnapshot.Flag("carry-on", "Continue on filesystem error").
+				Bool()
+	cmdSnapshotFlagExclude = cmdSnapshot.Flag("exclude",
+		"gitignore-compatible exclusion pattern (see https://git-scm.com/docs/gitignore)").
+		Strings()
+	cmdSnapshotFlagExcludeFrom = cmdSnapshot.Flag("exclude-from",
+		"File path to read gitignore-compatible patterns from (see https://git-scm.com/docs/gitignore)").
+		ExistingFile()
 	cmdSnapshotFlagOut = cmdSnapshot.Flag("output-file",
 		"File path to write snapshot to (default: <YYYYMMDDhhmmss>.snap)").
 		Short('o').
 		String()
-	cmdSnapshotFlagCarryOn = cmdSnapshot.Flag("carry-on", "Continue on filesystem error").
-				Bool()
 	cmdSnapshotFlagShallow = cmdSnapshot.Flag("shallow", "Don't calculate files checksum").
 				Bool()
 	cmdSnapshotArgRoot = cmdSnapshot.Arg("root", "Path to root directory").
@@ -31,15 +39,31 @@ var (
 
 func doSnapshot() error {
 	var (
-		root    = *cmdSnapshotArgRoot
-		out     = *cmdSnapshotFlagOut
-		carryOn = *cmdSnapshotFlagCarryOn
-		shallow = *cmdSnapshotFlagShallow
+		root        = *cmdSnapshotArgRoot
+		carryOn     = *cmdSnapshotFlagCarryOn
+		out         = *cmdSnapshotFlagOut
+		shallow     = *cmdSnapshotFlagShallow
+		exclude     = *cmdSnapshotFlagExclude
+		excludeFrom = *cmdSnapshotFlagExcludeFrom
+
+		excludedPatterns []gitignore.Pattern
+		excluded         gitignore.Matcher
+		err              error
 	)
 
 	if out == "" {
 		out = time.Now().Format("20060102150405.snap")
 	}
+
+	if excludeFrom != "" {
+		if excludedPatterns, err = loadExcludeFile(excludeFrom); err != nil {
+			return errors.Wrap(err, "unable to load ignore file")
+		}
+	}
+	for _, p := range exclude {
+		excludedPatterns = append(excludedPatterns, gitignore.ParsePattern(p, nil))
+	}
+	excluded = gitignore.NewMatcher(excludedPatterns)
 
 	if !strings.HasSuffix(root, "/") {
 		root += "/"
@@ -55,6 +79,11 @@ func doSnapshot() error {
 		if err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 			// Skip the root directory itself
 			if path == root {
+				return nil
+			}
+
+			// Skip files matching the excluded patterns
+			if excluded.Match(strings.Split(strings.TrimPrefix(path, root), "/"), info.IsDir()) {
 				return nil
 			}
 
@@ -123,4 +152,20 @@ func doSnapshot() error {
 
 		return nil
 	})
+}
+
+func loadExcludeFile(path string) ([]gitignore.Pattern, error) {
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	patterns := make([]gitignore.Pattern, 0)
+	for _, s := range strings.Split(string(data), "\n") {
+		if !strings.HasPrefix(s, "#") && len(strings.TrimSpace(s)) > 0 {
+			patterns = append(patterns, gitignore.ParsePattern(s, nil))
+		}
+	}
+
+	return patterns, nil
 }
