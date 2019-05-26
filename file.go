@@ -18,6 +18,9 @@ type fileInfo struct {
 	Mode     os.FileMode
 	LinkTo   string
 	IsDir    bool
+	IsSock   bool
+	IsPipe   bool
+	IsDev    bool
 	Checksum []byte
 }
 
@@ -34,6 +37,18 @@ func (f *fileInfo) String() string {
 
 	if f.IsDir {
 		return s + " DIR"
+	}
+
+	if f.IsSock {
+		return s + " SOCK"
+	}
+
+	if f.IsPipe {
+		return s + " PIPE"
+	}
+
+	if f.IsDev {
+		return s + " DEV"
 	}
 
 	if f.LinkTo != "" {
@@ -102,6 +117,18 @@ func compare(before, after *fileInfo, ignore []string) map[string][2]interface{}
 
 	if before.IsDir != after.IsDir {
 		diff["dir"] = [2]interface{}{before.IsDir, after.IsDir}
+	}
+
+	if before.IsSock != after.IsSock {
+		diff["sock"] = [2]interface{}{before.IsSock, after.IsSock}
+	}
+
+	if before.IsPipe != after.IsPipe {
+		diff["pipe"] = [2]interface{}{before.IsPipe, after.IsPipe}
+	}
+
+	if before.IsDev != after.IsDev {
+		diff["dev"] = [2]interface{}{before.IsDev, after.IsDev}
 	}
 
 	if !ignored("checksum", ignore) && (before.Checksum != nil && after.Checksum != nil) {
