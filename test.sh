@@ -111,7 +111,7 @@ test_snapshot_with_exclude_flag() {
     fsdiff dump "$TMPDIR/snap" 1> "$TMPDIR/out"
     [[ $? -eq 0 ]] || fail "return code is not 0"
 
-    by_path=$(sed -ne '/## by_path/,/^## by_cs/p' "$TMPDIR/out" | grep -v '#' | wc -l)
+    by_path=$(sed -ne '/## by_path/,/^## by_c/p' "$TMPDIR/out" | grep -v '#' | wc -l)
     [[ $by_path -eq 1 ]] || fail "expected 1 entry in section by_path, got $by_path"
 
     by_cs=$(sed -ne '/## by_cs/,/^## metadata/p' "$TMPDIR/out" | grep -v '#' | wc -l)
