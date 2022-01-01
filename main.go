@@ -2,47 +2,50 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"runtime"
+	"strings"
 
-	kingpin "gopkg.in/alecthomas/kingpin.v2"
+	"github.com/alecthomas/kong"
+
+	"github.com/falzm/fsdiff/internal/version"
 )
-
-var (
-	version   string
-	commit    string
-	buildDate string
-)
-
-func dieOnError(format string, a ...interface{}) {
-	fmt.Fprintf(os.Stderr, fmt.Sprintf("error: %s\n", format), a...)
-	os.Exit(1)
-}
 
 func init() {
-	kingpin.Version(fmt.Sprintf("fsdiff %s (commit: %s) %s\nbuild info: Go %s (%s)",
-		version,
-		commit,
-		buildDate,
-		runtime.Version(),
-		runtime.Compiler))
 }
 
 func main() {
-	var err error
+	rootCmd := struct {
+		Snapshot snapshotCmd `cmd:"" aliases:"snap" help:"Scan file tree and record object properties."`
+		Diff     diffCmd     `cmd:"" help:"Show the differences between 2 snapshots."`
+		Dump     dumpCmd     `cmd:"" help:"Dump snapshot information."`
 
-	switch kingpin.Parse() {
-	case cmdSnapshot.FullCommand():
-		err = doSnapshot()
+		Version kong.VersionFlag `short:"v" help:"Print version information and quit."`
+	}{}
 
-	case cmdDiff.FullCommand():
-		err = doDiff()
+	app := kong.Parse(
+		&rootCmd,
+		kong.Name("fsdiff"),
+		kong.Description(
+			"fsdiff reports what changes occurred in a filesystem tree.",
+		),
+		kong.ConfigureHelp(kong.HelpOptions{
+			Compact:   true,
+			FlagsLast: true,
+		}),
+		kong.UsageOnError(),
+		kong.Vars{
+			"diff_file_properties": strings.Join(diffFileProperties, ", "),
+			"version": fmt.Sprintf(
+				"fsdiff %s (commit: %s) %s\nbuild info: Go %s (%s)",
+				version.Version,
+				version.Commit,
+				version.BuildDate,
+				runtime.Version(),
+				runtime.Compiler,
+			),
+		},
+	)
 
-	case cmdDump.FullCommand():
-		err = doDump()
-	}
-
-	if err != nil {
-		dieOnError("%s", err)
-	}
+	app.BindTo(*app, (*kong.Context)(nil))
+	app.FatalIfErrorf(app.Run())
 }

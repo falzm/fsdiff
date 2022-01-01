@@ -1,36 +1,50 @@
-# github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc
-github.com/alecthomas/template
-github.com/alecthomas/template/parse
-# github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf
-github.com/alecthomas/units
+# github.com/alecthomas/kong v0.2.22
+## explicit
+github.com/alecthomas/kong
+# github.com/davecgh/go-spew v1.1.1
+github.com/davecgh/go-spew/spew
 # github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99
 github.com/jbenet/go-context/io
-# github.com/mattn/go-colorable v0.1.1
+# github.com/mattn/go-colorable v0.1.12
+## explicit
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.5
+# github.com/mattn/go-isatty v0.0.14
 github.com/mattn/go-isatty
-# github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
+# github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
+## explicit
 github.com/mgutz/ansi
-# github.com/pkg/errors v0.8.1
+# github.com/pkg/errors v0.9.1
 github.com/pkg/errors
+# github.com/pmezard/go-difflib v1.0.0
+github.com/pmezard/go-difflib/difflib
 # github.com/src-d/gcfg v1.4.0
 github.com/src-d/gcfg
 github.com/src-d/gcfg/scanner
 github.com/src-d/gcfg/token
 github.com/src-d/gcfg/types
-# go.etcd.io/bbolt v1.3.3-0.20190510211640-4af6cfab7010
+# github.com/stretchr/testify v1.7.0
+## explicit
+github.com/stretchr/testify/assert
+github.com/stretchr/testify/require
+github.com/stretchr/testify/suite
+# go.etcd.io/bbolt v1.3.6
+## explicit
 go.etcd.io/bbolt
-# golang.org/x/net v0.0.0-20180906233101-161cd47e91fd
+# golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
+## explicit
 golang.org/x/net/context
-# golang.org/x/sys v0.0.0-20190516110030-61b9204099cb
+# golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
+## explicit
+golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
-# gopkg.in/alecthomas/kingpin.v2 v2.2.6
-gopkg.in/alecthomas/kingpin.v2
-# gopkg.in/src-d/go-billy.v4 v4.2.1
+# gopkg.in/src-d/go-billy.v4 v4.3.2
 gopkg.in/src-d/go-billy.v4
-# gopkg.in/src-d/go-git.v4 v4.11.0
-gopkg.in/src-d/go-git.v4/plumbing/format/gitignore
+# gopkg.in/src-d/go-git.v4 v4.13.1
+## explicit
 gopkg.in/src-d/go-git.v4/plumbing/format/config
+gopkg.in/src-d/go-git.v4/plumbing/format/gitignore
 gopkg.in/src-d/go-git.v4/utils/ioutil
 # gopkg.in/warnings.v0 v0.1.2
 gopkg.in/warnings.v0
+# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+gopkg.in/yaml.v3

@@ -188,7 +188,6 @@ func (tx *Tx) Commit() error {
 	}
 
 	// If strict mode is enabled then perform a consistency check.
-	// Only the first consistency error is reported in the panic.
 	if tx.db.StrictMode {
 		ch := tx.Check()
 		var errs []string
@@ -254,17 +253,36 @@ func (tx *Tx) Rollback() error {
 	if tx.db == nil {
 		return ErrTxClosed
 	}
-	tx.rollback()
+	tx.nonPhysicalRollback()
 	return nil
 }
 
+// nonPhysicalRollback is called when user calls Rollback directly, in this case we do not need to reload the free pages from disk.
+func (tx *Tx) nonPhysicalRollback() {
+	if tx.db == nil {
+		return
+	}
+	if tx.writable {
+		tx.db.freelist.rollback(tx.meta.txid)
+	}
+	tx.close()
+}
+
+// rollback needs to reload the free pages from disk in case some system error happens like fsync error.
 func (tx *Tx) rollback() {
 	if tx.db == nil {
 		return
 	}
 	if tx.writable {
 		tx.db.freelist.rollback(tx.meta.txid)
-		tx.db.freelist.reload(tx.db.page(tx.db.meta().freelist))
+		if !tx.db.hasSyncedFreelist() {
+			// Reconstruct free page list by scanning the DB to get the whole free page list.
+			// Note: scaning the whole db is heavy if your db size is large in NoSyncFreeList mode.
+			tx.db.freelist.noSyncReload(tx.db.freepages())
+		} else {
+			// Read free page list from freelist page.
+			tx.db.freelist.reload(tx.db.page(tx.db.meta().freelist))
+		}
 	}
 	tx.close()
 }
@@ -374,7 +392,7 @@ func (tx *Tx) CopyFile(path string, mode os.FileMode) error {
 		return err
 	}
 
-	err = tx.Copy(f)
+	_, err = tx.WriteTo(f)
 	if err != nil {
 		_ = f.Close()
 		return err
@@ -504,20 +522,18 @@ func (tx *Tx) write() error {
 
 	// Write pages to disk in order.
 	for _, p := range pages {
-		size := (int(p.overflow) + 1) * tx.db.pageSize
+		rem := (uint64(p.overflow) + 1) * uint64(tx.db.pageSize)
 		offset := int64(p.id) * int64(tx.db.pageSize)
+		var written uintptr
 
 		// Write out page in "max allocation" sized chunks.
-		ptr := (*[maxAllocSize]byte)(unsafe.Pointer(p))
 		for {
-			// Limit our write to our max allocation size.
-			sz := size
+			sz := rem
 			if sz > maxAllocSize-1 {
 				sz = maxAllocSize - 1
 			}
+			buf := unsafeByteSlice(unsafe.Pointer(p), written, 0, int(sz))
 
-			// Write chunk to disk.
-			buf := ptr[:sz]
 			if _, err := tx.db.ops.writeAt(buf, offset); err != nil {
 				return err
 			}
@@ -526,14 +542,14 @@ func (tx *Tx) write() error {
 			tx.stats.Write++
 
 			// Exit inner for loop if we've written all the chunks.
-			size -= sz
-			if size == 0 {
+			rem -= sz
+			if rem == 0 {
 				break
 			}
 
 			// Otherwise move offset forward and move pointer to next chunk.
 			offset += int64(sz)
-			ptr = (*[maxAllocSize]byte)(unsafe.Pointer(&ptr[sz]))
+			written += uintptr(sz)
 		}
 	}
 
@@ -552,7 +568,7 @@ func (tx *Tx) write() error {
 			continue
 		}
 
-		buf := (*[maxAllocSize]byte)(unsafe.Pointer(p))[:tx.db.pageSize]
+		buf := unsafeByteSlice(unsafe.Pointer(p), 0, 0, tx.db.pageSize)
 
 		// See https://go.googlesource.com/go/+/f03c9202c43e0abb130669852082117ca50aa9b1
 		for i := range buf {
