@@ -1,5 +1,4 @@
-.vscode/
-dist/
-test/
-fsdiff
+/bin/
+/dist/
+/test/
 *.snap

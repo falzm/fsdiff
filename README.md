@@ -1,6 +1,6 @@
 # fsdiff
 
-`fsdiff` is a simple tool that helps finding out what changes occurred in a filesystem tree.
+`fsdiff` is a simple tool that helps to find out what changes occurred in a filesystem tree.
 
 Using `fsdiff` involves two steps: first take a `snapshot` of the target filesystem *before* modifications happen,
 then another one *after*. Then, the `diff` step compares the two snapshots and reports the changes found.
@@ -11,9 +11,9 @@ Here is an example illustrating how to use this tool. We start with an existing 
 $ tree test/
 test
 ├── a
-│   ├── b
-│   └── c
-│       └── d
+│   ├── b
+│   └── c
+│       └── d
 └── z
 
 2 directories, 3 files
@@ -55,8 +55,11 @@ $ fsdiff diff before.snap after.snap
 - a/c
 - a/c/d
 
-2 new, 2 changed, 2 deleted
+2 new, 2 modified, 2 deleted
 ```
+
+Similar to the traditional `diff` tool, the `fsdiff diff` command's exit status has a specific meaning: `0` means no
+differences were found, `1` means some differences were found, and `2` means trouble.
 
 
 ## Installation
@@ -80,7 +83,7 @@ brew install fsdiff
 go get github.com/falzm/fsdiff
 ```
 
-### From source (requires a Go compiler >= 1.9)
+### From source (requires a Go compiler >= 1.16)
 
 At the top of the sources directory, just type `make fsdiff`. If everything went well, you should end up with binary
 named `fsdiff` in your current directory.

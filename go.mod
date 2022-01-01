@@ -1,16 +1,14 @@
 module github.com/falzm/fsdiff
 
-go 1.12
+go 1.16
 
 require (
-	github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc // indirect
-	github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf // indirect
-	github.com/mattn/go-colorable v0.1.1 // indirect
-	github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
-	github.com/pkg/errors v0.8.1
-	github.com/stretchr/testify v1.3.0 // indirect
-	go.etcd.io/bbolt v1.3.3-0.20190510211640-4af6cfab7010
-	golang.org/x/sys v0.0.0-20190516110030-61b9204099cb // indirect
-	gopkg.in/alecthomas/kingpin.v2 v2.2.6
-	gopkg.in/src-d/go-git.v4 v4.11.0
+	github.com/alecthomas/kong v0.2.22
+	github.com/mattn/go-colorable v0.1.12 // indirect
+	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
+	github.com/stretchr/testify v1.7.0
+	go.etcd.io/bbolt v1.3.6
+	golang.org/x/net v0.0.0-20211216030914-fe4d6282115f // indirect
+	golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e // indirect
+	gopkg.in/src-d/go-git.v4 v4.13.1
 )
