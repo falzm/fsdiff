@@ -4,9 +4,11 @@ builds:
   goarch:
   - amd64
 
+universal_binaries:
+- replace: true
+
 archives:
-  -
-    name_template: "{{ .ProjectName }}_{{ .Version }}-{{ .Os }}-{{ .Arch }}"
+- name_template: "{{ .ProjectName }}_{{ .Version }}-{{ .Os }}-{{ .Arch }}"
 
 checksum:
   name_template: 'checksums.txt'
@@ -14,12 +16,16 @@ checksum:
 snapshot:
   name_template: "{{ .Version }}dev"
 
+changelog:
+  skip: true
+
 release:
   github:
     owner: falzm
     name: fsdiff
 
-nfpm:
+nfpms:
+-
   homepage: https://github.com/falzm/fsdiff
   maintainer: Marc Falzon <marc@baha.mu>
   description: Filesystem changes tracking tool
@@ -27,9 +33,11 @@ nfpm:
   formats:
     - deb
     - rpm
+  bindir: /usr/bin
 
-brew:
-  github:
+brews:
+-
+  tap:
     owner: falzm
     name: homebrew-fsdiff
   commit_author:
