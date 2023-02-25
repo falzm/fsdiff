@@ -13,9 +13,7 @@ func (ts *testSuite) TestFileInfo_String() {
 		testChecksum = func() []byte {
 			sha1sum := sha1.Sum([]byte(ts.randomString(10)))
 			bytes := make([]byte, len(sha1sum))
-			for i := range sha1sum {
-				bytes[i] = sha1sum[i]
-			}
+			copy(bytes, sha1sum[:])
 			return bytes
 		}()
 		testGID      uint32      = 2000
