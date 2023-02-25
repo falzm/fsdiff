@@ -71,9 +71,7 @@ func checksumFile(path string) ([]byte, error) {
 	cs := sha1.Sum(data)
 
 	bytes := make([]byte, len(cs))
-	for i := range cs {
-		bytes[i] = cs[i]
-	}
+	copy(bytes, cs[:])
 
 	return bytes, nil
 }
