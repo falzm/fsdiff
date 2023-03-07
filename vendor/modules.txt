@@ -33,9 +33,8 @@ go.etcd.io/bbolt
 # golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
 ## explicit
 golang.org/x/net/context
-# golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
+# golang.org/x/sys v0.2.0
 ## explicit
-golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 # gopkg.in/src-d/go-billy.v4 v4.3.2
 gopkg.in/src-d/go-billy.v4
