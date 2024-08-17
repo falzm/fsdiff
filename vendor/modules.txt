@@ -1,43 +1,49 @@
-# github.com/alecthomas/kong v0.2.22
-## explicit
+# github.com/alecthomas/kong v0.9.0
+## explicit; go 1.18
 github.com/alecthomas/kong
 # github.com/davecgh/go-spew v1.1.1
+## explicit
 github.com/davecgh/go-spew/spew
 # github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99
-github.com/jbenet/go-context/io
-# github.com/mattn/go-colorable v0.1.12
 ## explicit
+github.com/jbenet/go-context/io
+# github.com/mattn/go-colorable v0.1.13
+## explicit; go 1.15
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.14
+# github.com/mattn/go-isatty v0.0.20
+## explicit; go 1.15
 github.com/mattn/go-isatty
 # github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 ## explicit
 github.com/mgutz/ansi
 # github.com/pkg/errors v0.9.1
-github.com/pkg/errors
+## explicit
 # github.com/pmezard/go-difflib v1.0.0
+## explicit
 github.com/pmezard/go-difflib/difflib
 # github.com/src-d/gcfg v1.4.0
+## explicit
 github.com/src-d/gcfg
 github.com/src-d/gcfg/scanner
 github.com/src-d/gcfg/token
 github.com/src-d/gcfg/types
-# github.com/stretchr/testify v1.7.0
-## explicit
+# github.com/stretchr/testify v1.9.0
+## explicit; go 1.17
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 github.com/stretchr/testify/suite
-# go.etcd.io/bbolt v1.3.6
-## explicit
+# go.etcd.io/bbolt v1.3.10
+## explicit; go 1.21
 go.etcd.io/bbolt
-# golang.org/x/net v0.0.0-20211216030914-fe4d6282115f
-## explicit
+# golang.org/x/net v0.28.0
+## explicit; go 1.18
 golang.org/x/net/context
-# golang.org/x/sys v0.0.0-20211216021012-1d35b9e2eb4e
-## explicit
-golang.org/x/sys/internal/unsafeheader
+# golang.org/x/sys v0.24.0
+## explicit; go 1.18
 golang.org/x/sys/unix
+golang.org/x/sys/windows
 # gopkg.in/src-d/go-billy.v4 v4.3.2
+## explicit
 gopkg.in/src-d/go-billy.v4
 # gopkg.in/src-d/go-git.v4 v4.13.1
 ## explicit
@@ -45,6 +51,8 @@ gopkg.in/src-d/go-git.v4/plumbing/format/config
 gopkg.in/src-d/go-git.v4/plumbing/format/gitignore
 gopkg.in/src-d/go-git.v4/utils/ioutil
 # gopkg.in/warnings.v0 v0.1.2
+## explicit
 gopkg.in/warnings.v0
-# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+# gopkg.in/yaml.v3 v3.0.1
+## explicit
 gopkg.in/yaml.v3
