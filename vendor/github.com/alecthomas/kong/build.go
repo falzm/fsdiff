@@ -25,7 +25,7 @@ func build(k *Kong, ast interface{}) (app *Application, err error) {
 		seenFlags[flag.Name] = true
 	}
 
-	node, err := buildNode(k, iv, ApplicationNode, seenFlags)
+	node, err := buildNode(k, iv, ApplicationNode, newEmptyTag(), seenFlags)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ type flattenedField struct {
 	tag   *Tag
 }
 
-func flattenedFields(v reflect.Value) (out []flattenedField, err error) {
+func flattenedFields(v reflect.Value, ptag *Tag) (out []flattenedField, err error) {
 	v = reflect.Indirect(v)
 	for i := 0; i < v.NumField(); i++ {
 		ft := v.Type().Field(i)
@@ -61,6 +61,15 @@ func flattenedFields(v reflect.Value) (out []flattenedField, err error) {
 		if tag.Ignored {
 			continue
 		}
+		// Assign group if it's not already set.
+		if tag.Group == "" {
+			tag.Group = ptag.Group
+		}
+		// Accumulate prefixes.
+		tag.Prefix = ptag.Prefix + tag.Prefix
+		tag.EnvPrefix = ptag.EnvPrefix + tag.EnvPrefix
+		// Combine parent vars.
+		tag.Vars = ptag.Vars.CloneWith(tag.Vars)
 		// Command and embedded structs can be pointers, so we hydrate them now.
 		if (tag.Cmd || tag.Embed) && ft.Type.Kind() == reflect.Ptr {
 			fv = reflect.New(ft.Type.Elem()).Elem()
@@ -68,7 +77,8 @@ func flattenedFields(v reflect.Value) (out []flattenedField, err error) {
 		}
 		if !ft.Anonymous && !tag.Embed {
 			if fv.CanSet() {
-				out = append(out, flattenedField{field: ft, value: fv, tag: tag})
+				field := flattenedField{field: ft, value: fv, tag: tag}
+				out = append(out, field)
 			}
 			continue
 		}
@@ -78,7 +88,7 @@ func flattenedFields(v reflect.Value) (out []flattenedField, err error) {
 			fv = fv.Elem()
 		} else if fv.Type() == reflect.TypeOf(Plugins{}) {
 			for i := 0; i < fv.Len(); i++ {
-				fields, ferr := flattenedFields(fv.Index(i).Elem())
+				fields, ferr := flattenedFields(fv.Index(i).Elem(), tag)
 				if ferr != nil {
 					return nil, ferr
 				}
@@ -86,20 +96,9 @@ func flattenedFields(v reflect.Value) (out []flattenedField, err error) {
 			}
 			continue
 		}
-		sub, err := flattenedFields(fv)
+		sub, err := flattenedFields(fv, tag)
 		if err != nil {
 			return nil, err
-		}
-		for _, subf := range sub {
-			// Assign parent if it's not already set.
-			if subf.tag.Group == "" {
-				subf.tag.Group = tag.Group
-			}
-			// Accumulate prefixes.
-			subf.tag.Prefix = tag.Prefix + subf.tag.Prefix
-			subf.tag.EnvPrefix = tag.EnvPrefix + subf.tag.EnvPrefix
-			// Combine parent vars.
-			subf.tag.Vars = tag.Vars.CloneWith(subf.tag.Vars)
 		}
 		out = append(out, sub...)
 	}
@@ -109,13 +108,13 @@ func flattenedFields(v reflect.Value) (out []flattenedField, err error) {
 // Build a Node in the Kong data model.
 //
 // "v" is the value to create the node from, "typ" is the output Node type.
-func buildNode(k *Kong, v reflect.Value, typ NodeType, seenFlags map[string]bool) (*Node, error) {
+func buildNode(k *Kong, v reflect.Value, typ NodeType, tag *Tag, seenFlags map[string]bool) (*Node, error) {
 	node := &Node{
 		Type:   typ,
 		Target: v,
-		Tag:    newEmptyTag(),
+		Tag:    tag,
 	}
-	fields, err := flattenedFields(v)
+	fields, err := flattenedFields(v, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -134,13 +133,15 @@ MAIN:
 		tag := field.tag
 		name := tag.Name
 		if name == "" {
-			name = tag.Prefix + strings.ToLower(dashedString(ft.Name))
+			name = tag.Prefix + k.flagNamer(ft.Name)
 		} else {
 			name = tag.Prefix + name
 		}
 
-		if tag.Env != "" {
-			tag.Env = tag.EnvPrefix + tag.Env
+		if len(tag.Envs) != 0 {
+			for i := range tag.Envs {
+				tag.Envs[i] = tag.EnvPrefix + tag.Envs[i]
+			}
 		}
 
 		// Nested structs are either commands or args, unless they implement the Mapper interface.
@@ -158,6 +159,11 @@ MAIN:
 		}
 	}
 
+	// Validate if there are no duplicate names
+	if err := checkDuplicateNames(node, v); err != nil {
+		return nil, err
+	}
+
 	// "Unsee" flags.
 	for _, flag := range node.Flags {
 		delete(seenFlags, "--"+flag.Name)
@@ -166,21 +172,37 @@ MAIN:
 		}
 	}
 
-	// Scan through argument positionals to ensure optional is never before a required.
-	var last *Value
-	for i, curr := range node.Positional {
-		if last != nil && !last.Required && curr.Required {
-			return nil, fmt.Errorf("%s: required %q can not come after optional %q", node.FullPath(), curr.Name, last.Name)
-		}
-		last = curr
-		curr.Position = i
+	if err := validatePositionalArguments(node); err != nil {
+		return nil, err
 	}
 
 	return node, nil
 }
 
+func validatePositionalArguments(node *Node) error {
+	var last *Value
+	for i, curr := range node.Positional {
+		if last != nil {
+			// Scan through argument positionals to ensure optional is never before a required.
+			if !last.Required && curr.Required {
+				return fmt.Errorf("%s: required %q cannot come after optional %q", node.FullPath(), curr.Name, last.Name)
+			}
+
+			// Cumulative argument needs to be last.
+			if last.IsCumulative() {
+				return fmt.Errorf("%s: argument %q cannot come after cumulative %q", node.FullPath(), curr.Name, last.Name)
+			}
+		}
+
+		last = curr
+		curr.Position = i
+	}
+
+	return nil
+}
+
 func buildChild(k *Kong, node *Node, typ NodeType, v reflect.Value, ft reflect.StructField, fv reflect.Value, tag *Tag, name string, seenFlags map[string]bool) error {
-	child, err := buildNode(k, fv, typ, seenFlags)
+	child, err := buildNode(k, fv, typ, newEmptyTag(), seenFlags)
 	if err != nil {
 		return err
 	}
@@ -211,14 +233,28 @@ func buildChild(k *Kong, node *Node, typ NodeType, v reflect.Value, ft reflect.S
 		if child.Help == "" {
 			child.Help = child.Argument.Help
 		}
-	} else if tag.HasDefault {
-		if node.DefaultCmd != nil {
-			return failField(v, ft, "can't have more than one default command under %s", node.Summary())
+	} else {
+		if tag.HasDefault {
+			if node.DefaultCmd != nil {
+				return failField(v, ft, "can't have more than one default command under %s", node.Summary())
+			}
+			if tag.Default != "withargs" && (len(child.Children) > 0 || len(child.Positional) > 0) {
+				return failField(v, ft, "default command %s must not have subcommands or arguments", child.Summary())
+			}
+			node.DefaultCmd = child
 		}
-		if tag.Default != "withargs" && (len(child.Children) > 0 || len(child.Positional) > 0) {
-			return failField(v, ft, "default command %s must not have subcommands or arguments", child.Summary())
+		if tag.Passthrough {
+			if len(child.Children) > 0 || len(child.Flags) > 0 {
+				return failField(v, ft, "passthrough command %s must not have subcommands or flags", child.Summary())
+			}
+			if len(child.Positional) != 1 {
+				return failField(v, ft, "passthrough command %s must contain exactly one positional argument", child.Summary())
+			}
+			if !checkPassthroughArg(child.Positional[0].Target) {
+				return failField(v, ft, "passthrough command %s must contain exactly one positional argument of []string type", child.Summary())
+			}
+			child.Passthrough = true
 		}
-		node.DefaultCmd = child
 	}
 	node.Children = append(node.Children, child)
 
@@ -260,6 +296,13 @@ func buildField(k *Kong, node *Node, v reflect.Value, ft reflect.StructField, fv
 			return failField(v, ft, "duplicate flag --%s", value.Name)
 		}
 		seenFlags["--"+value.Name] = true
+		for _, alias := range tag.Aliases {
+			aliasFlag := "--" + alias
+			if seenFlags[aliasFlag] {
+				return failField(v, ft, "duplicate flag %s", aliasFlag)
+			}
+			seenFlags[aliasFlag] = true
+		}
 		if tag.Short != 0 {
 			if seenFlags["-"+string(tag.Short)] {
 				return failField(v, ft, "duplicate short flag -%c", tag.Short)
@@ -268,9 +311,10 @@ func buildField(k *Kong, node *Node, v reflect.Value, ft reflect.StructField, fv
 		}
 		flag := &Flag{
 			Value:       value,
+			Aliases:     tag.Aliases,
 			Short:       tag.Short,
 			PlaceHolder: tag.PlaceHolder,
-			Env:         tag.Env,
+			Envs:        tag.Envs,
 			Group:       buildGroupForKey(k, tag.Group),
 			Xor:         tag.Xor,
 			Hidden:      tag.Hidden,
@@ -296,4 +340,21 @@ func buildGroupForKey(k *Kong, key string) *Group {
 		Key:   key,
 		Title: key,
 	}
+}
+
+func checkDuplicateNames(node *Node, v reflect.Value) error {
+	seenNames := make(map[string]struct{})
+	for _, node := range node.Children {
+		if _, ok := seenNames[node.Name]; ok {
+			name := v.Type().Name()
+			if name == "" {
+				name = "<anonymous struct>"
+			}
+			return fmt.Errorf("duplicate command name %q in command %q", node.Name, name)
+		}
+
+		seenNames[node.Name] = struct{}{}
+	}
+
+	return nil
 }

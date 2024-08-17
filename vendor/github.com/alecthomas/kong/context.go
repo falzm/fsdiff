@@ -1,14 +1,13 @@
 package kong
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 // Path records the nodes and parsed values from the current command-line.
@@ -111,7 +110,7 @@ func (c *Context) Bind(args ...interface{}) {
 //
 // This will typically have to be called like so:
 //
-//    BindTo(impl, (*MyInterface)(nil))
+//	BindTo(impl, (*MyInterface)(nil))
 func (c *Context) BindTo(impl, iface interface{}) {
 	c.bindings.addTo(impl, iface)
 }
@@ -162,20 +161,20 @@ func (c *Context) Empty() bool {
 }
 
 // Validate the current context.
-func (c *Context) Validate() error { // nolint: gocyclo
+func (c *Context) Validate() error { //nolint: gocyclo
 	err := Visit(c.Model, func(node Visitable, next Next) error {
 		switch node := node.(type) {
 		case *Value:
-			_, ok := os.LookupEnv(node.Tag.Env)
-			if node.Enum != "" && (!node.Required || node.HasDefault || (node.Tag.Env != "" && ok)) {
+			ok := atLeastOneEnvSet(node.Tag.Envs)
+			if node.Enum != "" && (!node.Required || node.HasDefault || (len(node.Tag.Envs) != 0 && ok)) {
 				if err := checkEnum(node, node.Target); err != nil {
 					return err
 				}
 			}
 
 		case *Flag:
-			_, ok := os.LookupEnv(node.Tag.Env)
-			if node.Enum != "" && (!node.Required || node.HasDefault || (node.Tag.Env != "" && ok)) {
+			ok := atLeastOneEnvSet(node.Tag.Envs)
+			if node.Enum != "" && (!node.Required || node.HasDefault || (len(node.Tag.Envs) != 0 && ok)) {
 				if err := checkEnum(node.Value, node.Target); err != nil {
 					return err
 				}
@@ -202,16 +201,18 @@ func (c *Context) Validate() error { // nolint: gocyclo
 
 		case *Application:
 			value = node.Target
-			desc = node.Name
+			desc = ""
 
 		case *Node:
 			value = node.Target
 			desc = node.Path()
 		}
 		if validate := isValidatable(value); validate != nil {
-			err := validate.Validate()
-			if err != nil {
-				return errors.Wrap(err, desc)
+			if err := validate.Validate(); err != nil {
+				if desc != "" {
+					return fmt.Errorf("%s: %w", desc, err)
+				}
+				return err
 			}
 		}
 	}
@@ -346,8 +347,9 @@ func (c *Context) endParsing() {
 	}
 }
 
-func (c *Context) trace(node *Node) (err error) { // nolint: gocyclo
+func (c *Context) trace(node *Node) (err error) { //nolint: gocyclo
 	positional := 0
+	node.Active = true
 
 	flags := []*Flag{}
 	flagNode := node
@@ -361,6 +363,10 @@ func (c *Context) trace(node *Node) (err error) { // nolint: gocyclo
 		flags = append(flags, group...)
 	}
 
+	if node.Passthrough {
+		c.endParsing()
+	}
+
 	for !c.scan.Peek().IsEOL() {
 		token := c.scan.Peek()
 		switch token.Type {
@@ -371,7 +377,7 @@ func (c *Context) trace(node *Node) (err error) { // nolint: gocyclo
 				switch {
 				case v == "-":
 					fallthrough
-				default: // nolint
+				default: //nolint
 					c.scan.Pop()
 					c.scan.PushTyped(token.Value, PositionalArgumentToken)
 
@@ -436,6 +442,7 @@ func (c *Context) trace(node *Node) (err error) { // nolint: gocyclo
 					c.endParsing()
 				}
 
+				arg.Active = true
 				err := arg.Parse(c.scan, c.getValue(arg))
 				if err != nil {
 					return err
@@ -554,7 +561,7 @@ func (c *Context) Resolve() error {
 			for _, resolver := range resolvers {
 				s, err := resolver.Resolve(c, path, flag)
 				if err != nil {
-					return errors.Wrap(err, flag.ShortSummary())
+					return fmt.Errorf("%s: %w", flag.ShortSummary(), err)
 				}
 				if s == nil {
 					continue
@@ -578,7 +585,7 @@ func (c *Context) Resolve() error {
 			})
 		}
 	}
-	c.Path = append(inserted, c.Path...)
+	c.Path = append(c.Path, inserted...)
 	return nil
 }
 
@@ -659,17 +666,42 @@ func (c *Context) Apply() (string, error) {
 	return strings.Join(path, " "), nil
 }
 
+func flipBoolValue(value reflect.Value) error {
+	if value.Kind() == reflect.Bool {
+		value.SetBool(!value.Bool())
+		return nil
+	}
+
+	if value.Kind() == reflect.Ptr {
+		if !value.IsNil() {
+			return flipBoolValue(value.Elem())
+		}
+		return nil
+	}
+
+	return fmt.Errorf("cannot negate a value of %s", value.Type().String())
+}
+
 func (c *Context) parseFlag(flags []*Flag, match string) (err error) {
 	candidates := []string{}
+
 	for _, flag := range flags {
 		long := "--" + flag.Name
-		short := "-" + string(flag.Short)
-		neg := "--no-" + flag.Name
+		matched := long == match
 		candidates = append(candidates, long)
 		if flag.Short != 0 {
+			short := "-" + string(flag.Short)
+			matched = matched || (short == match)
 			candidates = append(candidates, short)
 		}
-		if short != match && long != match && !(match == neg && flag.Tag.Negatable) {
+		for _, alias := range flag.Aliases {
+			alias = "--" + alias
+			matched = matched || (alias == match)
+			candidates = append(candidates, alias)
+		}
+
+		neg := "--no-" + flag.Name
+		if !matched && !(match == neg && flag.Tag.Negatable) {
 			continue
 		}
 		// Found a matching flag.
@@ -679,20 +711,31 @@ func (c *Context) parseFlag(flags []*Flag, match string) (err error) {
 		}
 		err := flag.Parse(c.scan, c.getValue(flag.Value))
 		if err != nil {
-			if e, ok := errors.Cause(err).(*expectedError); ok && e.token.InferredType().IsAny(FlagToken, ShortFlagToken) {
-				return errors.Errorf("%s; perhaps try %s=%q?", err, flag.ShortSummary(), e.token)
+			var expected *expectedError
+			if errors.As(err, &expected) && expected.token.InferredType().IsAny(FlagToken, ShortFlagToken) {
+				return fmt.Errorf("%s; perhaps try %s=%q?", err.Error(), flag.ShortSummary(), expected.token)
 			}
 			return err
 		}
 		if flag.Negated {
 			value := c.getValue(flag.Value)
-			value.SetBool(!value.Bool())
+			err := flipBoolValue(value)
+			if err != nil {
+				return err
+			}
 			flag.Value.Apply(value)
 		}
 		c.Path = append(c.Path, &Path{Flag: flag})
 		return nil
 	}
 	return findPotentialCandidates(match, candidates, "unknown flag %s", match)
+}
+
+// Call an arbitrary function filling arguments with bound values.
+func (c *Context) Call(fn any, binds ...interface{}) (out []interface{}, err error) {
+	fv := reflect.ValueOf(fn)
+	bindings := c.Kong.bindings.clone().add(binds...).add(c).merge(c.bindings) //nolint:govet
+	return callAnyFunction(fv, bindings)
 }
 
 // RunNode calls the Run() method on an arbitrary node.
@@ -728,7 +771,7 @@ func (c *Context) RunNode(node *Node, binds ...interface{}) (err error) {
 	}
 
 	for _, method := range methods {
-		if err = callMethod("Run", method.node.Target, method.method, method.binds); err != nil {
+		if err = callFunction(method.method, method.binds); err != nil {
 			return err
 		}
 	}
@@ -789,8 +832,8 @@ func checkMissingFlags(flags []*Flag) error {
 			missing = append(missing, flag.Summary())
 		}
 	}
-	for _, flags := range xorGroup {
-		if len(flags) > 1 {
+	for xor, flags := range xorGroup {
+		if !xorGroupSet[xor] && len(flags) > 1 {
 			missing = append(missing, strings.Join(flags, " or "))
 		}
 	}
@@ -859,9 +902,8 @@ func checkMissingPositionals(positional int, values []*Value) error {
 	for ; positional < len(values); positional++ {
 		arg := values[positional]
 		// TODO(aat): Fix hardcoding of these env checks all over the place :\
-		if arg.Tag.Env != "" {
-			_, ok := os.LookupEnv(arg.Tag.Env)
-			if ok {
+		if len(arg.Tag.Envs) != 0 {
+			if atLeastOneEnvSet(arg.Tag.Envs) {
 				continue
 			}
 		}
@@ -884,20 +926,34 @@ func checkEnum(value *Value, target reflect.Value) error {
 		return nil
 
 	case reflect.Map, reflect.Struct:
-		return errors.Errorf("enum can only be applied to a slice or value")
+		return errors.New("enum can only be applied to a slice or value")
 
-	default:
-		enumMap := value.EnumMap()
-		v := fmt.Sprintf("%v", target)
-		if enumMap[v] {
+	case reflect.Ptr:
+		if target.IsNil() {
 			return nil
 		}
+		return checkEnum(value, target.Elem())
+	default:
+		enumSlice := value.EnumSlice()
+		v := fmt.Sprintf("%v", target)
 		enums := []string{}
-		for enum := range enumMap {
+		for _, enum := range enumSlice {
+			if enum == v {
+				return nil
+			}
 			enums = append(enums, fmt.Sprintf("%q", enum))
 		}
-		sort.Strings(enums)
 		return fmt.Errorf("%s must be one of %s but got %q", value.ShortSummary(), strings.Join(enums, ","), target.Interface())
+	}
+}
+
+func checkPassthroughArg(target reflect.Value) bool {
+	typ := target.Type()
+	switch typ.Kind() {
+	case reflect.Slice:
+		return typ.Elem().Kind() == reflect.String
+	default:
+		return false
 	}
 }
 
@@ -951,4 +1007,13 @@ func isValidatable(v reflect.Value) validatable {
 		return isValidatable(v.Addr())
 	}
 	return nil
+}
+
+func atLeastOneEnvSet(envs []string) bool {
+	for _, env := range envs {
+		if _, ok := os.LookupEnv(env); ok {
+			return true
+		}
+	}
+	return false
 }
