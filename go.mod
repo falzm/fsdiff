@@ -1,9 +1,6 @@
 module github.com/falzm/fsdiff
 
 go 1.21
-
-toolchain go1.23.0
-
 require (
 	github.com/alecthomas/kong v0.9.0
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
@@ -20,8 +17,8 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/src-d/gcfg v1.4.0 // indirect
-	golang.org/x/net v0.28.0 // indirect
-	golang.org/x/sys v0.24.0 // indirect
+	golang.org/x/net v0.36.0 // indirect
+	golang.org/x/sys v0.30.0 // indirect
 	gopkg.in/src-d/go-billy.v4 v4.3.2 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
